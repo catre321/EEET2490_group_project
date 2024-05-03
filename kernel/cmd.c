@@ -6,6 +6,8 @@
 #include "welcome.h"
 #include "mbox.h"
 #include "../uart/uart0.h"
+#include "framebf.h"
+#include "../images/big_image.h"
 
 Command commands[COMMANDS_SIZE] = {
     {"help", "Prints help text", "- Show full information of the command\n"
@@ -27,7 +29,12 @@ Command commands[COMMANDS_SIZE] = {
      fetch},
     {"UART0config", "Configure UART0", "- Configure UART0 baudrate, data bits, stop bits, parity, handshaking control\n"
                                        "- Example: MyOS> UART0 config",
-     UART0_config}};
+     UART0_config},
+    {"bigimage", "Display a oversize image", "- Display a oversize image and use WASD to move around image\n"
+                                             "- Example: CatfishOS> bigimage",
+     bigimage}
+    };
+
 
 Color_code text_colors[TEXT_COLOR_SIZE] = {
     {"BLACK", "\033[30m"},
@@ -429,4 +436,60 @@ void UART0_config(char *args)
     uart0_init(baud_rate, data_bits, stop_bits, parity, handshaking);
 
     uart0_puts("\nUART0 configured\n");
+}
+
+void bigimage(){
+    uart0_puts("Enter the bigimage display, press 'Ctrl+Z' to exit");
+    draw_image(0, 0, SCREEN_VIR_WIDTH, SCREEN_VIR_HEIGHT, epd_bitmap_big_image);    
+   
+    int currX = 0;
+    int currY = 0;
+
+    while(1) {
+        char c = 0;
+        if(is_uart0_byte_ready()){
+            c = uart0_getc();
+        }
+        
+        switch(c) {
+            case 'w':
+            case 'W':
+                currY -= 1;
+                if(currY < 0){
+                    currY = 0;
+                }
+                set_virtual_offset(currX, currY);
+                break;
+            case 'a':
+            case 'A':
+                currX -= 4;
+                if(currX < 0){
+                    currX = 0;
+                }
+                set_virtual_offset(currX, currY);
+                break;
+            case 's':
+            case 'S':
+                currY += 1;
+                if(currY > BIG_IMAGE_HEIGHT - SCREEN_PYS_HEIGHT){
+                    currY = BIG_IMAGE_HEIGHT - SCREEN_PYS_HEIGHT;
+                }    
+                set_virtual_offset(currX, currY);
+                break;
+            case 'd':
+            case 'D':
+                currX += 4;
+                if(currX > BIG_IMAGE_WIDTH - SCREEN_PYS_WIDTH){
+                   currX = BIG_IMAGE_WIDTH - SCREEN_PYS_WIDTH; 
+                }
+                set_virtual_offset(currX, currY);
+                break;
+            // Ctrl+z to exit
+            case 26:
+                set_virtual_offset(0, 0);
+                return;
+            default: 
+                break;
+        }
+    }
 }

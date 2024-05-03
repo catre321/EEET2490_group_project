@@ -42,7 +42,7 @@ int main()
     // Initialize frame buffer
     framebf_init();
     // Display on terminal
-    print_welcome_msg();
+    print_welcome_msg_uart();
     print_OS_initial_text();
 
     while (1)

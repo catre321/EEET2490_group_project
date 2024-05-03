@@ -32,8 +32,12 @@ char ascii_art[] = {
     "\0"
 };
 
-void print_welcome_msg(){
+void print_welcome_msg_uart(){
     uart0_puts(ascii_art);
+}
+
+void print_welcome_msg_screen(){
+   print_string(ascii_art);
 }
 
 void print_fetch_msg_display(){

@@ -2,7 +2,8 @@
 #include "mbox.h"
 #include "../uart/uart0.h"
 #include "framebf.h"
-#include "terminal.h"
+#include "font.h"
+
 // Use RGBA32 (32 bits for each pixel)
 #define COLOR_DEPTH 32
 // Pixel Order: BGR in memory order (little endian --> RGB in byte order)
@@ -68,12 +69,12 @@ void framebf_init()
         mBuf[28] &= 0x3FFFFFFF;
         // Access frame buffer as 1 byte per each address
         fb = (unsigned char *)((unsigned long)mBuf[28]);
-        // uart0_puts("Got allocated Frame Buffer at RAM physical address: ");
-        // uart0_hex(mBuf[28]);
-        // uart0_puts("\n");
-        // uart0_puts("Frame Buffer Size (bytes): ");
-        // uart0_dec(mBuf[29]);
-        // uart0_puts("\n");
+        uart0_puts("Got allocated Frame Buffer at RAM physical address: ");
+        uart0_hex(mBuf[28]);
+        uart0_puts("\n");
+        uart0_puts("Frame Buffer Size (bytes): ");
+        uart0_dec(mBuf[29]);
+        uart0_puts("\n");
         width = mBuf[5];
         // Actual physical width
         height = mBuf[6];
@@ -83,6 +84,31 @@ void framebf_init()
     else
     {
         uart0_puts("Unable to get a frame buffer with provided setting\n");
+    }
+}
+
+void set_virtual_offset(int x, int y) {
+    // mbox to set virtual offset to (0, SCREENHEIGHT)
+    mBuf[0] = 8 * 4;  // Length of message in bytes
+    mBuf[1] = MBOX_REQUEST;
+
+    mBuf[2] = MBOX_TAG_SETVIRTOFF;    // Set physical width-height
+    mBuf[3] = 8;                      // Value size in bytes
+    mBuf[4] = 0;                      // REQUEST CODE = 0
+    mBuf[5] = x;                      // Value(width)
+    mBuf[6] = y;  // Value(height)
+
+    mBuf[7] = MBOX_TAG_LAST;
+
+    // Call Mailbox
+    if (mbox_call(ADDR(mBuf), MBOX_CH_PROP)) {
+        uart0_puts("Set offset x-y: ");
+        uart0_dec(x);
+        uart0_puts(" ");
+        uart0_dec(y);
+        uart0_puts("\n");
+    } else {
+        uart0_puts("Unable to set virtual offset\n");
     }
 }
 
@@ -162,4 +188,16 @@ void draw_rect_ARGB32(int x1, int y1, int x2, int y2, unsigned int attr, int fil
             else if (fill)
                 draw_pixel_ARGB32(x, y, attr);
         }
+}
+
+// draw image v1 using CPU
+void draw_image(int startX, int startY, int endX, int endY, const unsigned int *imgArray){
+    uart0_puts("draw_image CALLED");
+    unsigned int pixel = 0;
+    for (int y = startY; y < endY; y++) {
+        for (int x = startX; x < endX; x++) {
+            draw_pixel_ARGB32(x, y, imgArray[pixel]);
+            pixel++;
+        }
+    }
 }

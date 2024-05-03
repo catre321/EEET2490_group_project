@@ -14,7 +14,6 @@ void uart0_init(int baudrate, int databits, int stopbits, int parity, int handsh
 	// int parity = 0;
 	// int handshaking = 0;
 	
-
 	unsigned int r;
 
 	/* Turn off UART0 */
