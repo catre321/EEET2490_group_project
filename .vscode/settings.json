@@ -1,0 +1,10 @@
+{
+    "files.associations": {
+        "mbox.h": "c",
+        "use_func.h": "c",
+        "previous_cmd.h": "c",
+        "uart0.h": "c",
+        "framebf.h": "c"
+    },
+    "C_Cpp.default.compilerPath": "c:\\Program Files\\gcc-arm-10.3-2021.07-mingw-w64-i686-aarch64-none-elf\\bin\\aarch64-none-elf-gcc.exe"
+}
