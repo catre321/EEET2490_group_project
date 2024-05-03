@@ -112,6 +112,14 @@ void set_virtual_offset(int x, int y) {
     }
 }
 
+void clear_screen(){
+    for(unsigned int y = 0; y < SCREEN_VIR_HEIGHT; y++){
+        for(unsigned int x = 0; x < SCREEN_PYS_WIDTH; x++){
+            draw_pixel_ARGB32(x, y ,0x00000000);
+        }
+    }
+}
+
 void draw_pixel_ARGB32(int x, int y, unsigned int attr)
 {
     int offs = (y * pitch) + (COLOR_DEPTH / 8 * x);

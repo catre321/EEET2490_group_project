@@ -439,6 +439,7 @@ void UART0_config(char *args)
 }
 
 void bigimage(){
+    clear_screen();
     uart0_puts("Enter the bigimage display, press 'Ctrl+Z' to exit");
     draw_image(0, 0, SCREEN_VIR_WIDTH, SCREEN_VIR_HEIGHT, epd_bitmap_big_image);    
    
@@ -487,6 +488,7 @@ void bigimage(){
             // Ctrl+z to exit
             case 26:
                 set_virtual_offset(0, 0);
+                clear_screen();
                 return;
             default: 
                 break;

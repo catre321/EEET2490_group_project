@@ -6,6 +6,7 @@
 
 void framebf_init();
 void set_virtual_offset(int x, int y); 
+void clear_screen();
 void draw_pixel_ARGB32(int x, int y, unsigned int attr);
 void draw_rect_ARGB32(int x1, int y1, int x2, int y2, unsigned int attr, int fill);
 void draw_string(int x, int y, char *s, unsigned char attr);
