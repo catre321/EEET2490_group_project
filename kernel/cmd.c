@@ -8,13 +8,15 @@
 #include "../uart/uart0.h"
 #include "framebf.h"
 #include "../images/big_image.h"
+#include "../images/short_video.h"
+#include "../images/test_image.h"
 
 Command commands[COMMANDS_SIZE] = {
     {"help", "Prints help text", "- Show full information of the command\n"
-                                 "- Example: MyOS> help hwinfo",
+                                 "- Example: CatfishOS> help hwinfo",
      help},
     {"clear", "Clears the screen", "- Clear screen (in our terminal it will scroll down to current position of the cursor)\n"
-                                   "- Example: MyOS> clear",
+                                   "- Example: CatfishOS> clear",
      clear},
     {"setcolor", "Set text color, and/or background color", "- Set text color, and/or background color of the console to one of the following colors: BLACK, RED, GREEN, YELLOW, BLUE, PURPLE, CYAN, WHITE\n"
                                                             "- Examples:\n"
@@ -22,18 +24,21 @@ Command commands[COMMANDS_SIZE] = {
                                                             "CatfishOS> setcolor -b yellow -t white",
      setcolor},
     {"showinfo", "Show board information", "- Show board revision and board MAC address in correct format/ meaningful information\n"
-                                           "- Example: MyOS> showinfo",
+                                           "- Example: CatfishOS> showinfo",
      showinfo},
     {"fetch", "Show welcome message", "- Show welcome message\n"
-                                      "- Example: MyOS> fetch",
+                                      "- Example: CatfishOS> fetch",
      fetch},
     {"UART0config", "Configure UART0", "- Configure UART0 baudrate, data bits, stop bits, parity, handshaking control\n"
-                                       "- Example: MyOS> UART0 config",
+                                       "- Example: CatfishOS> UART0 config",
      UART0_config},
     {"bigimage", "Display a oversize image", "- Display a oversize image and use WASD to move around image\n"
                                              "- Example: CatfishOS> bigimage",
-     bigimage}
-    };
+     bigimage},
+    {"playvideo", "Play a short video", "- Play a short video in a loop\n"
+                                        "- Example: CatfishOS> playvideo",
+     playvideo
+    }};
 
 
 Color_code text_colors[TEXT_COLOR_SIZE] = {
@@ -60,7 +65,7 @@ void print_mac_address(unsigned int part1, unsigned int part2)
 {
     unsigned int mac_address[6];
 
-    // Extract bytes from the u32 values
+    // Extract bytes from the unsigned int values
     mac_address[0] = part1 & 0xFF;
     mac_address[1] = (part1 >> 8) & 0xFF;
     mac_address[2] = (part1 >> 16) & 0xFF;
@@ -439,10 +444,12 @@ void UART0_config(char *args)
 }
 
 void bigimage(){
-    clear_screen();
+    // set_virtual_screen_size(BIG_IMAGE_WIDTH, BIG_IMAGE_HEIGHT);
+    framebf_init(SCREEN_PYS_WIDTH, SCREEN_PYS_HEIGHT, BIG_IMAGE_WIDTH, BIG_IMAGE_HEIGHT);
+    // clear_buffer();
     uart0_puts("Enter the bigimage display, press 'Ctrl+Z' to exit");
-    draw_image(0, 0, SCREEN_VIR_WIDTH, SCREEN_VIR_HEIGHT, epd_bitmap_big_image);    
-   
+    // draw_image(0, 0, SCREEN_VIR_WIDTH, SCREEN_VIR_HEIGHT, epd_bitmap_big_image);    
+    draw_imagev2(epd_bitmap_big_image);
     int currX = 0;
     int currY = 0;
 
@@ -488,10 +495,55 @@ void bigimage(){
             // Ctrl+z to exit
             case 26:
                 set_virtual_offset(0, 0);
-                clear_screen();
+                clear_buffer();
+                // set_virtual_screen_size(SCREEN_PYS_WIDTH, SCREEN_PYS_HEIGHT);
+                framebf_init(SCREEN_PYS_WIDTH, SCREEN_PYS_HEIGHT, SCREEN_PYS_WIDTH, SCREEN_PYS_HEIGHT);
                 return;
             default: 
                 break;
         }
     }
+}
+
+void playvideo(){
+    // set_virtual_screen_size(SHORT_VIDEO_WIDTH, SHORT_VIDEO_HEIGHT);
+    framebf_init(SHORT_VIDEO_WIDTH, SHORT_VIDEO_HEIGHT, SHORT_VIDEO_WIDTH, SHORT_VIDEO_HEIGHT);
+
+    // clear_buffer();
+    unsigned int curr_frame = 0;
+
+    while(1) {
+        char c = 0;
+        if(is_uart0_byte_ready()){
+            c = uart0_getc();
+        }
+        
+        switch(c) {
+            // Ctrl+z to exit
+            case 26:
+                // set_virtual_offset(0, 0);
+                clear_buffer();
+                // set_virtual_screen_size(SCREEN_PYS_WIDTH, SCREEN_VIR_HEIGHT);
+                framebf_init(SCREEN_PYS_WIDTH, SCREEN_PYS_HEIGHT, SCREEN_PYS_WIDTH, SCREEN_PYS_HEIGHT);
+                return;
+            default: 
+                break;
+        }
+        // draw_image(0,0, TEST_IMAGE_WIDTH, TEST_IMAGE_HEIGHT, short_video_allArray[0]);
+
+        draw_imagev2(short_video_allArray[curr_frame]);
+        curr_frame++;
+        if(curr_frame > short_video_LEN - 1) curr_frame = 0;
+        
+        // Because of DMA in real pi4 board is ~2ms fast and emulator is ~30ms fast
+        #ifdef RPI4
+            wait_msec(33); // approx 30fps
+        #endif
+        // wait_msec(33); // approx 30fps
+    }
+    // draw_imagev2(epd_bitmap_test);
+    // draw_image(0,0, TEST_IMAGE_WIDTH, TEST_IMAGE_HEIGHT, epd_bitmap_test);
+    // draw_image(0,0, TEST_IMAGE_WIDTH, TEST_IMAGE_HEIGHT, short_video_allArray[0]);
+    // draw_imagev2(short_video_allArray[50]);
+    return;
 }

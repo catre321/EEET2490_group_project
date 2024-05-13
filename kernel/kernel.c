@@ -8,6 +8,7 @@
 #include "previous_cmd.h"
 #include "cmd.h"
 #include "../lib/use_func.h"
+#include "../dma/dma.h"
 
 char input_bufer[INPUT_BUFFER_SIZE];
 unsigned int input_bufer_idx = 0;
@@ -40,7 +41,10 @@ int main()
     // say hello
     // uart0_puts("lllllllllllllllllllllllllll");
     // Initialize frame buffer
-    framebf_init();
+    framebf_init(SCREEN_PYS_WIDTH, SCREEN_PYS_HEIGHT, SCREEN_PYS_WIDTH, SCREEN_PYS_HEIGHT);
+    // clear_buffer();
+    dma_init();
+    timer_init();
     // Display on terminal
     print_welcome_msg_uart();
     print_OS_initial_text();

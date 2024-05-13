@@ -9,6 +9,9 @@ OLIBFILE = $(CLIBFILE:./lib/%.c=./build/%.o)
 CUARTFILE = $(wildcard ./uart/*.c)
 OUARTFILE = $(CUARTFILE:./uart/%.c=./build/%.o)
 
+CDMAFILE = $(wildcard ./dma/*.c)
+ODMAFILE = $(CDMAFILE:./dma/%.c=./build/%.o)
+
 GCCFLAGS = -Wall -O2 -ffreestanding -nostdinc -nostdlib
 
 ifeq ($(pi),4)
@@ -41,8 +44,10 @@ compile: clean kernel8.img
 	aarch64-none-elf-gcc $(GCCFLAGS) -c $< -o $@
 ./build/%.o: ./uart/%.c
 	aarch64-none-elf-gcc $(GCCFLAGS) -c $< -o $@
+./build/%.o: ./dma/%.c
+	aarch64-none-elf-gcc $(GCCFLAGS) -c $< -o $@
 
-kernel8.img: ./build/boot.o $(OUARTFILE) $(OFILES) $(OLIBFILE)
+kernel8.img: ./build/boot.o $(OUARTFILE) $(OFILES) $(OLIBFILE) $(ODMAFILE)
 	aarch64-none-elf-ld -nostdlib $^ -T ./kernel/link.ld -o ./build/kernel8.elf
 	aarch64-none-elf-objcopy -O binary ./build/kernel8.elf kernel8.img
 
