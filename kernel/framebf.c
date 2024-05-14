@@ -5,7 +5,7 @@
 #include "font.h"
 #include "../dma/timer.h"
 #include "../dma/dma.h"
-// #include "../images/big_image.h"
+#include "../images/full_black.h"
 
 // Use RGBA32 (32 bits for each pixel)
 #define COLOR_DEPTH 32
@@ -231,10 +231,11 @@ void set_virtual_screen_size(unsigned int width, unsigned int height){
 
 void clear_buffer(){
     uart0_puts("clear_buffer called!");
-    for(int i = 0; i < frame_buffer_size; i++){
-        // i[fb] = 0; // curse pattern 
-        fb[i] = 0;
-    }
+    // for(int i = 0; i < frame_buffer_size; i++){
+    //     // i[fb] = 0; // curse pattern 
+    //     fb[i] = 0;
+    // }
+    do_dma(fb, full_black, frame_buffer_size);
 }
 
 void draw_pixel_ARGB32(int x, int y, unsigned int attr)
