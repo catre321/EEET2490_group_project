@@ -10,5 +10,6 @@ int isspace(unsigned char c);
 void trim(char *str);
 void to_uppercase(char *str);
 void wait_msec(unsigned int msVal);
+int randomRange(int min, int max);
 
 #endif

@@ -1,6 +1,7 @@
 #include "use_func.h"
 #include "../uart/uart0.h"
 
+// Copies count bytes from the object pointed to by src to the object pointed to by dest
 void *memcpy(void *dest, const void *src, unsigned long n)
 {
     char *d = dest;
@@ -12,6 +13,7 @@ void *memcpy(void *dest, const void *src, unsigned long n)
     return dest;
 }
 
+// Copies at most count characters of the character array
 void strncpy(char *dest, const char *src, int n)
 {
     int i = 0;
@@ -27,6 +29,7 @@ void strncpy(char *dest, const char *src, int n)
     }
 }
 
+// The length of the null-terminated string str
 int strlen(const char *str)
 {
     int len = 0;
@@ -37,19 +40,29 @@ int strlen(const char *str)
     return len;
 }
 
-int strncmp(const char *str1, const char *str2, unsigned int n)
+/*
+    Compares at most count characters of two possibly null-terminated arrays 
+    Negative value if lhs appears before rhs in lexicographical order.
+    Zero if lhs and rhs compare equal, or if count is zero.
+    Positive value if lhs appears after rhs in lexicographical order.
+*/
+int strncmp(const char *lhs, const char *rhs, unsigned int n)
 {
     for (unsigned int i = 0; i < n; i++)
     {
-        if (str1[i] == '\0' || str2[i] == '\0' || str1[i] != str2[i])
+        if (lhs[i] == '\0' || rhs[i] == '\0' || lhs[i] != rhs[i])
         {
-            return str1[i] - str2[i];
+            return lhs[i] - rhs[i];
         }
     }
     return 0;
 }
 
-// from https://github.com/openbsd/src/blob/fe4b30a0642f0cd4c7dedc0f03aef70250ce15b6/lib/libc/string/strtok.c#L42
+/* 
+    from https://github.com/openbsd/src/blob/fe4b30a0642f0cd4c7dedc0f03aef70250ce15b6/lib/libc/string/strtok.c#L42
+    Finds the next token in a null-terminated byte string pointed to by str. The separator characters are identified by null-terminated byte string pointed to by delim.
+    This function is designed to be called multiple times to obtain successive tokens from the same string.
+*/
 char *strtok_r(char *s, const char *delim, char **last)
 {
     const char *spanp;
@@ -101,12 +114,19 @@ cont:
     /* NOTREACHED */
 }
 
+/*
+    Checks if the given character is whitespace character
+    Return Non-zero value if the character is a whitespace character, zero otherwise
+*/ 
 int isspace(unsigned char c)
 {
     return c == ' ' || c == '\t' || c == '\n' || c == '\v' || c == '\f' || c == '\r';
 }
 
-// from https://stackoverflow.com/questions/122616/how-do-i-trim-leading-trailing-whitespace-in-a-standard-way
+/* 
+    from https://stackoverflow.com/questions/122616/how-do-i-trim-leading-trailing-whitespace-in-a-standard-way
+    Trim whitespace at the beginning and end of the string
+*/
 void trim(char *str)
 {
     int i, j;
@@ -147,6 +167,7 @@ void trim(char *str)
     }
 }
 
+// Convert character to uppercase
 void to_uppercase(char *str)
 {
     for (int i = 0; str[i]; i++)
@@ -158,6 +179,7 @@ void to_uppercase(char *str)
     }
 }
 
+// Stop the program for ms
 void wait_msec(unsigned int msVal){
     register unsigned long f, t, r, expiredTime; //64 bits
 
@@ -175,4 +197,22 @@ void wait_msec(unsigned int msVal){
     do {
     	asm volatile ("mrs %0, cntpct_el0" : "=r"(r));
     } while(r < expiredTime);
+}
+
+// Linear congruential generator parameters
+#define RAND_A 1664525
+#define RAND_C 1013904223
+
+// Seed for the random number generator
+static unsigned int rand_seed = 12345;
+
+// Function to generate a random number between 0 and RAND_MAX
+unsigned int rand() {
+    rand_seed = RAND_A * rand_seed + RAND_C;
+    return rand_seed;
+}
+
+// Function to generate a random number between min and max (inclusive)
+int randomRange(int min, int max) {
+    return min + (rand() % (max - min + 1));
 }

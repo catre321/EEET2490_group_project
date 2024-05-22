@@ -2,7 +2,7 @@
 #ifndef CMD_H
 #define CMD_H
 
-#define COMMANDS_SIZE 8
+#define COMMANDS_SIZE 10
 #define TEXT_COLOR_SIZE 8
 #define BG_COLOR_SIZE 8
 
@@ -29,8 +29,10 @@ void clear(char *args);
 void setcolor(char *args);
 void showinfo(char *args);
 void fetch(char *args);
+void clear_display(char *args);
 void UART0_config(char *args);
 void bigimage();
 void playvideo();
+void game();
 
 #endif

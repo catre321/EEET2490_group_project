@@ -8,7 +8,16 @@
         "font.h": "c",
         "big_image.h": "c",
         "dma.h": "c",
-        "mm.h": "c"
+        "mm.h": "c",
+        "cursor.h": "c",
+        "cmd.h": "c",
+        "assets.h": "c",
+        "space_shuttle.h": "c",
+        "full_black.h": "c",
+        "game.h": "c",
+        "assert.h": "c",
+        "timer.h": "c",
+        "welcome.h": "c"
     },
     "C_Cpp.default.compilerPath": "c:\\Program Files\\gcc-arm-10.3-2021.07-mingw-w64-i686-aarch64-none-elf\\bin\\aarch64-none-elf-gcc.exe"
 }

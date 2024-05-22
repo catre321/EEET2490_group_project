@@ -3,11 +3,11 @@
 #include "mm.h"
 #include "../uart/uart0.h"
 
+#include "../kernel/framebf.h"
+
 dma_channel channels[15];
 
 static unsigned int channel_map = 0x1F35;
-
-// static dma_channel *dma;
 
 
 static unsigned int allocate_channel(unsigned int channel) {
@@ -44,9 +44,9 @@ dma_channel *dma_open_channel(unsigned int channel) {
     dma->channel = _channel;
 
     //LOW_MEMORY = bottom of RAM...  Hack for now since no allocate function
-    dma->block = (dma_control_block *)((LOW_MEMORY + 31) & ~31);
-    // static dma_control_block __attribute__((aligned(32))) dma_block;
-    // dma->block = &dma_block;
+    // dma->block = (dma_control_block *)((LOW_MEMORY + 31) & ~31);
+    static dma_control_block __attribute__((aligned(32))) dma_block;
+    dma->block = &dma_block;
     dma->block->res[0] = 0;
     dma->block->res[1] = 0;
 
@@ -104,6 +104,40 @@ int dma_wait(dma_channel *channel) {
 
 }
 
+// Test DMA functionality
+int compare_memory(const unsigned int *a, const unsigned int *b, unsigned int size) {
+    for (unsigned int i = 0; i < size; i++) {
+        uart0_dec(a[i]);
+        uart0_puts("-");
+        uart0_dec(b[i]);
+        uart0_puts(" ");
+        if (a[i] != b[i]) {
+            
+            return 0; // Memory differs
+        }
+    }
+    return 1; // Memory is the same
+}
+const unsigned int src_data[10] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+    unsigned int dest_data[10]; // Initialize destination array with zeros
+// Test DMA functionality
+void test_dma() {
+    uart0_puts("Testing DMA...\n");
+
+    // Test data
+    // const unsigned int src_data[10] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+    // unsigned int dest_data[10]; // Initialize destination array with zeros
+
+    // Perform DMA operation (assuming size is in bytes)
+    do_dma(dest_data, src_data, sizeof(src_data));
+    uart0_puts("AFter do_dma\n");
+    // Verify the copy
+    if (compare_memory(src_data, dest_data, sizeof(src_data)/sizeof(unsigned int))) {
+        uart0_puts("\nDMA Test PassedVVVV.\n");
+    } else {
+        uart0_puts("\nDMA Test Failed.\n");
+    }
+}
 
 
 

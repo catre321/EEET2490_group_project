@@ -3,7 +3,6 @@
 #include "../uart/uart0.h"
 #include "mbox.h"
 #include "framebf.h"
-#include "cursor.h"
 #include "welcome.h"
 #include "previous_cmd.h"
 #include "cmd.h"
@@ -13,7 +12,6 @@
 char input_bufer[INPUT_BUFFER_SIZE];
 unsigned int input_bufer_idx = 0;
 unsigned int is_cmd_right = 0;
-// char c;
 
 void clear_input_buffer()
 {
@@ -35,15 +33,15 @@ void clear_current_string_uart()
 
 int main()
 {
-    color = 14;
     // set up serial console
     uart0_init(115200, 8, 2, 0, 0);
+    // Initialize DMA
+    dma_init();
     // say hello
     // uart0_puts("lllllllllllllllllllllllllll");
     // Initialize frame buffer
     framebf_init(SCREEN_PYS_WIDTH, SCREEN_PYS_HEIGHT, SCREEN_PYS_WIDTH, SCREEN_PYS_HEIGHT);
-    // clear_buffer();
-    dma_init();
+    // clear_fb();
     timer_init();
     // Display on terminal
     print_welcome_msg_uart();
@@ -57,7 +55,7 @@ int main()
             char c = uart0_getc();
 
             // backspace
-            if (c == 8)
+            if (c == 8 || c == 127)
             {
                 if (input_bufer_idx > 0)
                 {
@@ -86,7 +84,6 @@ int main()
 
                 char *matches[sizeof(commands) / sizeof(Command)];
                 unsigned int num_matches = 0;
-                // print_char(input_bufer_idx);
                 for (int i = 0; i < sizeof(commands) / sizeof(Command); i++)
                 {
                     if (strncmp(input_bufer, commands[i].cmd_name, (input_bufer_idx)) == 0)

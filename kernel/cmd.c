@@ -1,6 +1,5 @@
 #include "cmd.h"
 #include "../uart/uart0.h"
-#include "cursor.h"
 #include "../lib/use_func.h"
 #include "kernel.h"
 #include "welcome.h"
@@ -10,7 +9,9 @@
 #include "../images/big_image.h"
 #include "../images/short_video.h"
 #include "../images/test_image.h"
+#include "game.h"
 
+// list of command and their information n functions
 Command commands[COMMANDS_SIZE] = {
     {"help", "Prints help text", "- Show full information of the command\n"
                                  "- Example: CatfishOS> help hwinfo",
@@ -29,6 +30,9 @@ Command commands[COMMANDS_SIZE] = {
     {"fetch", "Show welcome message", "- Show welcome message\n"
                                       "- Example: CatfishOS> fetch",
      fetch},
+    {"cleardisplay", "Clear display output", "- Clear display output by clear framebuffer\n"
+                                             "- Example: CatfishOS> cleardisplay",
+     clear_display},
     {"UART0config", "Configure UART0", "- Configure UART0 baudrate, data bits, stop bits, parity, handshaking control\n"
                                        "- Example: CatfishOS> UART0 config",
      UART0_config},
@@ -37,10 +41,14 @@ Command commands[COMMANDS_SIZE] = {
      bigimage},
     {"playvideo", "Play a short video", "- Play a short video in a loop\n"
                                         "- Example: CatfishOS> playvideo",
-     playvideo
-    }};
+     playvideo},
+    {"game", "Play space shooting game", "- Play space shooting game with 2 level normal and hard mode\n"
+                                         "- Example:\n"
+                                         "CatfishOS> game \n"
+                                         "CatfishOS> game hardmode",
+     game}};
 
-
+// set codes for terminal color
 Color_code text_colors[TEXT_COLOR_SIZE] = {
     {"BLACK", "\033[30m"},
     {"RED", "\033[31m"},
@@ -71,8 +79,9 @@ void print_mac_address(unsigned int part1, unsigned int part2)
     mac_address[2] = (part1 >> 16) & 0xFF;
     mac_address[3] = (part1 >> 24) & 0xFF;
     mac_address[4] = part2 & 0xFF;
-    mac_address[5] = (part2 >> 8)& 0xFF;
+    mac_address[5] = (part2 >> 8) & 0xFF;
 
+    // print the MAC address in format
     for (int i = 0; i < sizeof(mac_address) / sizeof(mac_address[0]); i++)
     {
         if (i != 0)
@@ -92,6 +101,7 @@ void print_mac_address(unsigned int part1, unsigned int part2)
     }
 }
 
+// loop to get a char, if exit_code = TRUE terminate the function
 char get_char(char *exit_code_ptr)
 {
     char input = '0';
@@ -99,18 +109,22 @@ char get_char(char *exit_code_ptr)
     char c;
     while (1)
     {
-        if(*exit_code_ptr){
+        if (*exit_code_ptr)
+        {
             return '0';
         }
         if (is_uart0_byte_ready())
         {
 
             c = uart0_getc();
-            if(c == 26){
+            if (c == 26)
+            {
                 *exit_code_ptr = 1;
                 return 0;
             }
-            if (c == 8)
+
+            // backspace
+            if (c == 8 || c == 127)
             {
                 if (input_idx > 0)
                 {
@@ -141,6 +155,7 @@ char get_char(char *exit_code_ptr)
     }
 }
 
+// print help text for each command or a specific one
 void help(char *args)
 {
     if (args == 0)
@@ -172,19 +187,22 @@ void help(char *args)
     }
 }
 
+// call terminal to scroll down to clear the screen
 void clear(char *args)
 {
     // ANSI escape code to clear screen
     uart0_puts("\033[H\033[J");
 }
 
+// get the argument from user and set the color of terminal
 void setcolor(char *args)
 {
     char *save_ptr;
     char *text_color = 0;
     char *bg_color = 0;
 
-    if(args == 0){
+    if (args == 0)
+    {
         uart0_puts("No color specified, type \"help setcolor\" for example\n");
         return;
     }
@@ -231,6 +249,7 @@ void setcolor(char *args)
     }
 }
 
+// show board revision and board MAC address
 void showinfo(char *args)
 {
     // mailbox data buffer: Read ARM frequency
@@ -281,11 +300,20 @@ void showinfo(char *args)
     }
 }
 
+// Display a welcome message on HDMI screen
 void fetch(char *args)
 {
     print_fetch_msg_display();
 }
 
+// Clear display
+void clear_display(char *args)
+{
+    clear_back_buffer();
+    clear_fb();
+}
+
+// A series of question for a user to re-config the UART communication
 void UART0_config(char *args)
 {
     char exit_code = 0;
@@ -333,7 +361,8 @@ void UART0_config(char *args)
     }
 
     uart0_puts("\nEnter number of data bits (5, 6, 7, 8) (default 8): ");
-    while(1){
+    while (1)
+    {
         char input = get_char(exit_code_ptr);
         switch (input)
         {
@@ -349,12 +378,12 @@ void UART0_config(char *args)
         case '8':
             data_bits = 8;
             break;
-        case '0': 
+        case '0':
             data_bits = 8;
             break;
         default:
             uart0_puts("\nInvalid input. Please enter a number between 5 and 8, or leave it empty for default: ");
-            continue;   
+            continue;
         }
         break;
     };
@@ -379,7 +408,7 @@ void UART0_config(char *args)
             continue;
         }
         break;
-    };    
+    };
 
     uart0_puts("\nEnter parity (0 for none, 1 for odd, 2 for even) (default none): ");
     while (1)
@@ -422,7 +451,8 @@ void UART0_config(char *args)
         break;
     };
 
-    if(exit_code){
+    if (exit_code)
+    {
         uart0_puts("\nUART0 configuration exited and nothing change!!!\n");
         return;
     };
@@ -443,102 +473,126 @@ void UART0_config(char *args)
     uart0_puts("\nUART0 configured\n");
 }
 
-void bigimage(){
-    // set_virtual_screen_size(BIG_IMAGE_WIDTH, BIG_IMAGE_HEIGHT);
+// Make a 1280x720 physical screen and a 1920x1080 image store in virtual screem use WASD to move around
+void bigimage()
+{
+    uart0_puts("Sizeof imgArray: ");
+    uart0_dec(sizeof(epd_bitmap_big_image));
+
+    // Re-init framebuffer with 1280x720 physical and 1920x1080 virtual screen
+    frambf_release();
     framebf_init(SCREEN_PYS_WIDTH, SCREEN_PYS_HEIGHT, BIG_IMAGE_WIDTH, BIG_IMAGE_HEIGHT);
-    // clear_buffer();
-    uart0_puts("Enter the bigimage display, press 'Ctrl+Z' to exit");
-    // draw_image(0, 0, SCREEN_VIR_WIDTH, SCREEN_VIR_HEIGHT, epd_bitmap_big_image);    
+
+    // clear_fb();
+    uart0_puts("Enter the bigimage display, press 'Ctrl+Z' to exit\n");
+    // draw_image(0, 0, SCREEN_VIR_WIDTH, SCREEN_VIR_HEIGHT, epd_bitmap_big_image);
     draw_imagev2(epd_bitmap_big_image);
+
     int currX = 0;
     int currY = 0;
+    // pixel moved per click
+    int X_moved_per_click = 4 * 4;
+    int Y_moved_per_click = 1 * 4;
 
-    while(1) {
+    // Read key input and set the physical screen offset
+    while (1)
+    {
         char c = 0;
-        if(is_uart0_byte_ready()){
+        if (is_uart0_byte_ready())
+        {
             c = uart0_getc();
         }
-        
-        switch(c) {
-            case 'w':
-            case 'W':
-                currY -= 1;
-                if(currY < 0){
-                    currY = 0;
-                }
-                set_virtual_offset(currX, currY);
-                break;
-            case 'a':
-            case 'A':
-                currX -= 4;
-                if(currX < 0){
-                    currX = 0;
-                }
-                set_virtual_offset(currX, currY);
-                break;
-            case 's':
-            case 'S':
-                currY += 1;
-                if(currY > BIG_IMAGE_HEIGHT - SCREEN_PYS_HEIGHT){
-                    currY = BIG_IMAGE_HEIGHT - SCREEN_PYS_HEIGHT;
-                }    
-                set_virtual_offset(currX, currY);
-                break;
-            case 'd':
-            case 'D':
-                currX += 4;
-                if(currX > BIG_IMAGE_WIDTH - SCREEN_PYS_WIDTH){
-                   currX = BIG_IMAGE_WIDTH - SCREEN_PYS_WIDTH; 
-                }
-                set_virtual_offset(currX, currY);
-                break;
-            // Ctrl+z to exit
-            case 26:
-                set_virtual_offset(0, 0);
-                clear_buffer();
-                // set_virtual_screen_size(SCREEN_PYS_WIDTH, SCREEN_PYS_HEIGHT);
-                framebf_init(SCREEN_PYS_WIDTH, SCREEN_PYS_HEIGHT, SCREEN_PYS_WIDTH, SCREEN_PYS_HEIGHT);
-                return;
-            default: 
-                break;
+
+        switch (c)
+        {
+        case 'w':
+        case 'W':
+            currY -= Y_moved_per_click;
+            if (currY < 0)
+            {
+                currY = 0;
+            }
+            set_virtual_offset(currX, currY);
+            break;
+        case 'a':
+        case 'A':
+            currX -= X_moved_per_click;
+            if (currX < 0)
+            {
+                currX = 0;
+            }
+            set_virtual_offset(currX, currY);
+            break;
+        case 's':
+        case 'S':
+            currY += Y_moved_per_click;
+            if (currY > BIG_IMAGE_HEIGHT - SCREEN_PYS_HEIGHT)
+            {
+                currY = BIG_IMAGE_HEIGHT - SCREEN_PYS_HEIGHT;
+            }
+            set_virtual_offset(currX, currY);
+            break;
+        case 'd':
+        case 'D':
+            currX += X_moved_per_click;
+            if (currX > BIG_IMAGE_WIDTH - SCREEN_PYS_WIDTH)
+            {
+                currX = BIG_IMAGE_WIDTH - SCREEN_PYS_WIDTH;
+            }
+            set_virtual_offset(currX, currY);
+            break;
+        // Ctrl+z to exit
+        case 26:
+            set_virtual_offset(0, 0);
+            clear_fb();
+            frambf_release();
+            framebf_init(SCREEN_PYS_WIDTH, SCREEN_PYS_HEIGHT, SCREEN_PYS_WIDTH, SCREEN_PYS_HEIGHT);
+            return;
+        default:
+            break;
         }
     }
 }
 
-void playvideo(){
-    // set_virtual_screen_size(SHORT_VIDEO_WIDTH, SHORT_VIDEO_HEIGHT);
+// Play a video by copy frame by frame to the framebuffer
+void playvideo()
+{
+    frambf_release();
     framebf_init(SHORT_VIDEO_WIDTH, SHORT_VIDEO_HEIGHT, SHORT_VIDEO_WIDTH, SHORT_VIDEO_HEIGHT);
 
-    // clear_buffer();
+    // clear_fb();
     unsigned int curr_frame = 0;
 
-    while(1) {
+    while (1)
+    {
         char c = 0;
-        if(is_uart0_byte_ready()){
+        if (is_uart0_byte_ready())
+        {
             c = uart0_getc();
         }
-        
-        switch(c) {
-            // Ctrl+z to exit
-            case 26:
-                // set_virtual_offset(0, 0);
-                clear_buffer();
-                // set_virtual_screen_size(SCREEN_PYS_WIDTH, SCREEN_VIR_HEIGHT);
-                framebf_init(SCREEN_PYS_WIDTH, SCREEN_PYS_HEIGHT, SCREEN_PYS_WIDTH, SCREEN_PYS_HEIGHT);
-                return;
-            default: 
-                break;
-        }
-        // draw_image(0,0, TEST_IMAGE_WIDTH, TEST_IMAGE_HEIGHT, short_video_allArray[0]);
 
+        switch (c)
+        {
+        // Ctrl+z to exit
+        case 26:
+            // set_virtual_offset(0, 0);
+            clear_fb();
+            frambf_release();
+            framebf_init(SCREEN_PYS_WIDTH, SCREEN_PYS_HEIGHT, SCREEN_PYS_WIDTH, SCREEN_PYS_HEIGHT);
+            return;
+        default:
+            break;
+        }
+        // draw_image(0,0, SHORT_VIDEO_WIDTH, SHORT_VIDEO_HEIGHT, short_video_allArray[curr_frame]);
         draw_imagev2(short_video_allArray[curr_frame]);
         curr_frame++;
-        if(curr_frame > short_video_LEN - 1) curr_frame = 0;
-        
-        // Because of DMA in real pi4 board is ~2ms fast and emulator is ~30ms fast
-        #ifdef RPI4
-            wait_msec(33); // approx 30fps
-        #endif
+        if (curr_frame > short_video_LEN - 1)
+            curr_frame = 0;
+
+// Because of DMA in real pi4 board is ~2ms fast and emulator is ~30ms fast
+#ifdef RPI4
+        wait_msec(33); // approx 30fps
+#endif
         // wait_msec(33); // approx 30fps
     }
     // draw_imagev2(epd_bitmap_test);
@@ -546,4 +600,23 @@ void playvideo(){
     // draw_image(0,0, TEST_IMAGE_WIDTH, TEST_IMAGE_HEIGHT, short_video_allArray[0]);
     // draw_imagev2(short_video_allArray[50]);
     return;
+}
+
+// Small game on the OS
+void game(char *arg)
+{
+    char *hard_mode_str = "hardmode";
+    // Default normal mode
+    uart0_puts(arg);
+    if (arg == 0)
+    {
+        game_logic(0);
+    }
+    else
+    {
+        if (strncmp(hard_mode_str, arg, sizeof(hard_mode_str)) == 0)
+            game_logic(1);
+        else
+            uart0_puts("Not valid argument");
+    }
 }

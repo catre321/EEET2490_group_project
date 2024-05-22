@@ -1,4 +1,4 @@
-// from https://github.com/babbleberry/rpi4-osdev/blob/master/part5-framebuffer/terminal.h
+
 unsigned int vgapal[] = {
     0x000000, // black 0
     0x0000AA, // blue 1
@@ -19,14 +19,13 @@ unsigned int vgapal[] = {
 };
 
 enum {
-    FONT_WIDTH     = 8,
-    FONT_HEIGHT    = 8,
-    FONT_BPG       = 8,  // Bytes per glyph
+    FONT_WIDTH     = 8,  // Width in pixels
+    FONT_HEIGHT    = 8,  // Height in pixel
+    FONT_BPG       = 8,  // Bytes per character glyph
     FONT_BPL       = 1,  // Bytes per line
-    FONT_NUMGLYPHS = 224
+    FONT_NUMGLYPHS = 224 // Total number of characters in the font
 };
 
-// print in a loop (for(row) {for(col) print})
 unsigned char font[FONT_NUMGLYPHS][FONT_BPG] = {
     { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},   // U+0000 (nul)
     { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},   // U+0001

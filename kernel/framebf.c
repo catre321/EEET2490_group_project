@@ -15,11 +15,16 @@
 unsigned int width, height, pitch;
 /* Frame buffer address
  * (declare as pointer of unsigned char to access each byte) */
-unsigned char *fb;
+volatile unsigned char *fb;
+// Back_buffer to prevent screen flickering
+volatile unsigned char back_buffer[1920*1080*4];
+
 unsigned int cur_val_1 = 0;
 // Frame buffer size in Byte
 unsigned int frame_buffer_size;
+// Current screen virtual width
 unsigned int curr_virtual_width;
+// Current screen virtual height
 unsigned int curr_virtual_height;
 
 static dma_channel *dma;
@@ -83,7 +88,17 @@ void framebf_init(int phy_width, int phy_height, int vir_width, int vir_height)
         uart0_puts("Frame Buffer Size (bytes): ");
         uart0_dec(mBuf[29]);
         uart0_puts("\n");
-        frame_buffer_size = mBuf[29];
+
+        /*
+            Not using the size given by the mailbox bcs in 1920x1080 its give size bigger than theory calculation
+            1920x1080x4 = 8294400. Real board is 8355840 bytes
+            Might memory violation when using DMA. Therefor using calculation base on real size.
+            Real board is Pi4, Pi3 not tested.  
+        */ 
+
+        // frame_buffer_size = mBuf[29];
+        frame_buffer_size = vir_height * vir_width * COLOR_DEPTH / 8;
+
         curr_virtual_width = width;
         curr_virtual_height = height;
         width = mBuf[5];
@@ -100,19 +115,74 @@ void framebf_init(int phy_width, int phy_height, int vir_width, int vir_height)
     // test_dma();
 }
 
+// Release the current ultilize framebuffer
+void frambf_release(){
+    mBuf[0] = 6 * 4; // Length of message in bytes
+    mBuf[1] = MBOX_REQUEST;
+    
+    mBuf[2] = MBOX_TAG_RELEASEBUFFER;  // Release the framebuffer
+    mBuf[3] = 0;                  
+    mBuf[4] = 0;                  // REQUEST CODE = 0
+
+    mBuf[5] = MBOX_TAG_LAST;
+    // Call Mailbox
+    if (mbox_call(ADDR(mBuf), MBOX_CH_PROP)) {
+        uart0_puts("Release the framebuffer successfully\n");
+    } else {
+        uart0_puts("Unable to release the frambuffer\n");
+    }
+}
+
+// Get current screen physical and virtual resolution
+void get_resolution_fb_VCmem(){
+    mBuf[0] = 18 * 4; // Length of message in bytes
+    mBuf[1] = MBOX_REQUEST;
+    
+    mBuf[2] = MBOX_TAG_GETPHYDISPLAYWH;  // Get physical (display) width/height
+    mBuf[3] = 8;                  
+    mBuf[4] = 0;                  // REQUEST CODE = 0
+    mBuf[5] = 0;                    // Width
+    mBuf[6] = 0;                    // Height
+
+    mBuf[7] = MBOX_TAG_GETVIRBUFWH;  // Get virtual (buffer) width/height
+    mBuf[8] = 8;                  
+    mBuf[9] = 0;                  // REQUEST CODE = 0
+    mBuf[10] = 0;                    // Width
+    mBuf[11] = 0;                    // Height
+
+    mBuf[12] = MBOX_TAG_GETVCMEMORY;  // Get virtual (buffer) width/height
+    mBuf[13] = 8;                  
+    mBuf[14] = 0;                  // REQUEST CODE = 0
+    mBuf[15] = 0;                    // Base address in bytes
+    mBuf[16] = 0;                    // Size in bytes   
+
+    mBuf[17] = MBOX_TAG_LAST;
+
+    // Call Mailbox
+    if (mbox_call(ADDR(mBuf), MBOX_CH_PROP)) {
+        uart0_puts("Receive resolution successfully!\n");
+        uart0_puts("Physical (display) width/height: ");
+        uart0_dec(mBuf[5]); uart0_puts(" "); uart0_dec(mBuf[6]); uart0_puts("\n");
+        uart0_puts("Virtual (buffer) width/height");
+        uart0_dec(mBuf[10]); uart0_puts(" "); uart0_dec(mBuf[11]); uart0_puts("\n");
+        uart0_puts("Frame buffer address and size:");
+        uart0_hex(mBuf[15]); uart0_puts(" "); uart0_dec(mBuf[16]); uart0_puts("\n");
+    } else {
+        uart0_puts("Unable to release the frambuffer\n");
+    }
+}
+
 void dma_init(){
-    // int is_DMA_work = 0;
-    // while(!is_DMA_work){
-        dma = dma_open_channel(5);
-    // }
+    dma = dma_open_channel(5);
+
     uart0_puts("DMA CHANNEL: ");
     uart0_dec(dma->channel);
     uart0_puts("\n");
-        // is_DMA_work = test_dma();
-        test_dma();
+
+    test_dma();
 }
 
-
+// Timer and counter to get current ticks
 void timer_init() {
     cur_val_1 = REGS_TIMER->counter_lo;
     cur_val_1 += 1000000;
@@ -132,42 +202,31 @@ unsigned long timer_get_ticks() {
     return ((unsigned long)hi << 32) | lo;
 }
 
+// Call DMA to start memory transfer
 void do_dma(void *dest,const void *src, unsigned int total) {
-    unsigned int ms_start = timer_get_ticks() / 1000;
+    // unsigned int ms_start = timer_get_ticks() / 1000;
 
-    unsigned int start = 0;
-
-    while(total > 0) {
-        int num_bytes = total;
-
-        if (num_bytes > 0xFFFFFF) {
-            num_bytes = 0xFFFFFF;
-        }
-        
-        dma_setup_mem_copy(dma, dest + start, src + start, num_bytes, 2);
+        dma_setup_mem_copy(dma, dest, src, total, 2);
         
         dma_start(dma);
 
         dma_wait(dma);
 
-        start += num_bytes;
-        total -= num_bytes;
-    }
-
-    unsigned int ms_end = timer_get_ticks() / 1000;
-    uart0_dec((ms_end - ms_start));
+    // unsigned int ms_end = timer_get_ticks() / 1000;
+    // uart0_dec((ms_end - ms_start));
 }
 
+// Set offset of the framebuffer
 void set_virtual_offset(int x, int y) {
     // mbox to set virtual offset to (0, SCREENHEIGHT)
     mBuf[0] = 8 * 4;  // Length of message in bytes
     mBuf[1] = MBOX_REQUEST;
 
-    mBuf[2] = MBOX_TAG_SETVIRTOFF;    // Set physical width-height
-    mBuf[3] = 8;                      // Value size in bytes
+    mBuf[2] = MBOX_TAG_SETVIRTOFF;    // Set virtual offset
+    mBuf[3] = 8;                      
     mBuf[4] = 0;                      // REQUEST CODE = 0
-    mBuf[5] = x;                      // Value(width)
-    mBuf[6] = y;  // Value(height)
+    mBuf[5] = x;                      // x offset
+    mBuf[6] = y;                      // y offset
 
     mBuf[7] = MBOX_TAG_LAST;
 
@@ -183,125 +242,67 @@ void set_virtual_offset(int x, int y) {
     }
 }
 
-void set_virtual_screen_size(unsigned int width, unsigned int height){
-    mBuf[0] = 13 * 4;  // Length of message in bytes
-    mBuf[1] = MBOX_REQUEST; 
+// Set all value in framebuffer to 0 using DMA
+void clear_fb(){
+    uart0_puts("Sizeof full_black: ");
+    uart0_dec(sizeof(full_black));
+    uart0_puts("\n");
 
-    mBuf[2] = MBOX_TAG_SETVIRTWH; // Set virtual width-height
-    mBuf[3] = 8;
-    mBuf[4] = 0;
-    mBuf[5] = width;
-    mBuf[6] = height;
-
-    mBuf[7] = MBOX_TAG_GETFB; // Get frame buffer
-    mBuf[8] = 8;
-    mBuf[9] = 0;
-    mBuf[10] = 16;                // alignment in 16 bytes
-    mBuf[11] = 0;                 // will return Frame Buffer size in bytes
-
-    mBuf[12] = MBOX_TAG_LAST;
-
-
-    // Call Mailbox
-    if (mbox_call(ADDR(mBuf), MBOX_CH_PROP)
-        && mBuf[15] != 0                    // got a valid address for frame buffer ?
-    ) {
-        uart0_puts("Successfully set virtual screen: ");
-        uart0_dec(width);
-        uart0_puts("x");
-        uart0_dec(height);
-        uart0_puts("\n");
-
-        /* Convert GPU address to ARM address (clear higher address bits)
-         * Frame Buffer is located in RAM memory, which VideoCore MMU
-         * maps it to bus address space starting at 0xC0000000.
-         * Software accessing RAM directly use physical addresses
-         * (based at 0x00000000)
-         */
-        mBuf[15] &= 0x3FFFFFFF;
-        // Access frame buffer as 1 byte per each address
-        fb = (unsigned char *)((unsigned long)mBuf[15]);
-        frame_buffer_size = mBuf[16];
-        curr_virtual_height = height;
-        curr_virtual_width = width;
-    } else {
-        uart0_puts("Unable to set virtual screen size\n");
-    }
+    do_dma((void*)fb, full_black, frame_buffer_size);
 }
 
-void clear_buffer(){
-    uart0_puts("clear_buffer called!");
-    // for(int i = 0; i < frame_buffer_size; i++){
-    //     // i[fb] = 0; // curse pattern 
-    //     fb[i] = 0;
-    // }
-    do_dma(fb, full_black, frame_buffer_size);
+// Set all value in back_buffer to 0 using DMA
+void clear_back_buffer(){
+    do_dma((void*)back_buffer, full_black, frame_buffer_size);
 }
 
 void draw_pixel_ARGB32(int x, int y, unsigned int attr)
 {
     int offs = (y * pitch) + (COLOR_DEPTH / 8 * x);
-    /*
-    //Access and assign each byte
-    *(fb + offs ) = (attr >> 0 ) & 0xFF; //BLUE
-    *(fb + offs + 1) = (attr >> 8 ) & 0xFF; //GREEN
-    *(fb + offs + 2) = (attr >> 16) & 0xFF; //RED
-    *(fb + offs + 3) = (attr >> 24) & 0xFF; //ALPHA
-    */
+    /* //Access and assign each byte
+     *(fb + offs ) = (attr >> 0 ) & 0xFF; //BLUE
+     *(fb + offs + 1) = (attr >> 8 ) & 0xFF; //GREEN
+     *(fb + offs + 2) = (attr >> 16) & 0xFF; //RED
+     *(fb + offs + 3) = (attr >> 24) & 0xFF; //ALPHA
+     */
     // Access 32-bit together
     *((unsigned int *)(fb + offs)) = attr;
 }
 
-int draw_pixel(int x, int y, unsigned char attr)
-{
-    int offs = (y * pitch) + (x * 4);
-    *((unsigned int *)(fb + offs)) = vgapal[attr & 0x0f];
-    // uart0_hex(&fb);
-    // *((unsigned int *)(fb + offs)) = 0x00FFFF55;
-    return 0;
-}
-
-int draw_char(unsigned char ch, int x, int y, unsigned char attr)
+/* Functions to display text on the screen */
+// NOTE: zoom = 0 will not display the character
+void drawChar(unsigned char ch, int x, int y, unsigned int color, int zoom)
 {
     unsigned char *glyph = (unsigned char *)&font + (ch < FONT_NUMGLYPHS ? ch : 0) * FONT_BPG;
-    // unsigned char *glyph = (unsigned char *)&Font10x20 + (ch < FONT_NUMGLYPHS ? ch : 0) * FONT_BPG;
 
-    for (int i = 0; i < FONT_HEIGHT; i++)
-    {
-        for (int j = 0; j < FONT_WIDTH; j++)
-        {
-            // @ ARGB
-            unsigned char mask = 1 << j;
-            // right set color false black (print text)
-            unsigned char col = (*glyph & mask) ? attr & 0x0F : (attr & 0xF0) >> 4;
-
-            draw_pixel(x + j, y + i, col);
-        }
-        glyph += FONT_BPL;
+    for (int i = 1; i <= (FONT_HEIGHT*zoom); i++) {
+		for (int j = 0; j< (FONT_WIDTH*zoom); j++) {
+			unsigned char mask = 1 << (j/zoom);
+            if (*glyph & mask) { //only draw pixels belong to the character glyph
+			    draw_pixel_ARGB32(x + j, y + i, color);
+            }
+		}
+		glyph += (i % zoom) ? 0 : FONT_BPL;
     }
-    return 0;
 }
 
-void draw_string(int x, int y, char *s, unsigned char attr)
+/* Functions to display string on the screen and return current y coordinate */
+// NOTE: zoom = 0 will not display the character
+int drawString(int x, int y, char *str, unsigned int color, int zoom)
 {
-    while (*s)
-    {
-        if (*s == '\r')
-        {
+    while (*str) {
+        if (*str == '\r') {
             x = 0;
+        } else if (*str == '\n') {
+            x = 0; 
+			y += (FONT_HEIGHT*zoom);
+        } else {
+            drawChar(*str, x, y, color, zoom);
+            x += (FONT_WIDTH*zoom);
         }
-        else if (*s == '\n')
-        {
-            x = 0;
-            y += FONT_HEIGHT;
-        }
-        else
-        {
-            draw_char(*s, x, y, attr);
-            x += FONT_WIDTH;
-        }
-        s++;
+        str++;
     }
+    return y;
 }
 
 void draw_rect_ARGB32(int x1, int y1, int x2, int y2, unsigned int attr, int fill)
@@ -316,9 +317,39 @@ void draw_rect_ARGB32(int x1, int y1, int x2, int y2, unsigned int attr, int fil
         }
 }
 
+// Draw a small icon using CPU v1
+void draw_icon(int x, int y, int w, int h, const unsigned int *image)
+{
+    for (int i = x, cnt_w = 0; cnt_w < w; i++, cnt_w++)
+    {
+        for (int j = y, cnt_h = 0; cnt_h < h; j++, cnt_h++)
+        {
+            // if(image[cnt_w + cnt_h * w] != 0x00ffffff){
+                draw_pixel_ARGB32(i, j, image[cnt_w + cnt_h * w]);
+            // }
+        }
+    }
+}
+
+// ultilizing DMA to print line of Pixel vertically and using back_buffer
+void draw_iconv2(int x, int y, int w, int h, const unsigned int *image)
+{
+    for (int i = 0; i < h; i++) {
+        // Calculate the source and destination addresses for this row
+        const unsigned int *src = image + i * w;
+        volatile unsigned char* dest = back_buffer + (y + i) * pitch + x * (COLOR_DEPTH / 8);
+
+        // Set up a DMA transfer from src to dest
+        do_dma((void*)dest, src, w * (COLOR_DEPTH / 8));
+
+        // Wait for the DMA transfer to complete
+        // dma_wait_for_completion();
+    }
+}
+
 // draw image v1 using CPU
 void draw_image(int startX, int startY, int endX, int endY, const unsigned int *imgArray){
-    uart0_puts("draw_image CALLED");
+    // uart0_puts("draw_image CALLED");
     unsigned int pixel = 0;
     for (int y = startY; y < endY; y++) {
         for (int x = startX; x < endX; x++) {
@@ -328,45 +359,51 @@ void draw_image(int startX, int startY, int endX, int endY, const unsigned int *
     }
 }
 
-// draw image v2 using DMA
+// draw image v2 using DMA and back_buffer to avoid screen flickering
 void draw_imagev2(const unsigned int *imgArray){
     // uart0_puts("draw_image v2 CALLED");
-    do_dma(fb, imgArray, frame_buffer_size);
+    // do_dma(back_buffer, full_black, frame_buffer_size);
+    clear_back_buffer();
+    do_dma((void*)back_buffer, imgArray, frame_buffer_size);
+    do_dma((void*)fb, (void*)back_buffer, frame_buffer_size);
 }
 
-// Test DMA functionality
-int compare_memory(const unsigned int *a, const unsigned int *b, unsigned int size) {
-    for (unsigned int i = 0; i < size; i++) {
-        uart0_dec(a[i]);
-        uart0_puts("-");
-        uart0_dec(b[i]);
-        uart0_puts(" ");
-        if (a[i] != b[i]) {
+// Using DMA to copy back_buffer to framebuffer
+void copy_back_buffer_to_fb(){
+    do_dma((void*)fb, (void*)back_buffer, frame_buffer_size);
+}
+
+// // Test DMA functionality
+// int compare_memory(const unsigned int *a, const unsigned int *b, unsigned int size) {
+//     for (unsigned int i = 0; i < size; i++) {
+//         uart0_dec(a[i]);
+//         uart0_puts("-");
+//         uart0_dec(b[i]);
+//         uart0_puts(" ");
+//         if (a[i] != b[i]) {
             
-            return 0; // Memory differs
-        }
-    }
-    return 1; // Memory is the same
-}
+//             return 0; // Memory differs
+//         }
+//     }
+//     return 1; // Memory is the same
+// }
 
-// Test DMA functionality
-int test_dma() {
-    uart0_puts("Testing DMA...\n");
+// // Test DMA functionality
+// void test_dma() {
+//     uart0_puts("Testing DMA...\n");
 
-    // Test data
-    const unsigned int src_data[10] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
-    unsigned int dest_data[10]; // Initialize destination array with zeros
+//     // Test data
+//     const unsigned int src_data[10] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+//     unsigned int dest_data[10]; // Initialize destination array with zeros
 
-    // Perform DMA operation (assuming size is in bytes)
-    do_dma(dest_data, src_data, sizeof(src_data));
-    uart0_puts("AFter do_dma");
-    // Verify the copy
-    if (compare_memory(src_data, dest_data, sizeof(src_data)/sizeof(unsigned int))) {
-        uart0_puts("\nDMA Test PassedVVVV.\n");
-        return 1;
+//     // Perform DMA operation (assuming size is in bytes)
+//     do_dma(dest_data[0], src_data[0], sizeof(src_data));
+//     uart0_puts("AFter do_dma");
+//     // Verify the copy
+//     if (compare_memory(src_data, dest_data, sizeof(src_data)/sizeof(unsigned int))) {
+//         uart0_puts("\nDMA Test PassedVVVV.\n");
 
-    } else {
-        uart0_puts("\nDMA Test Failed.\n");
-        return 0;
-    }
-}
+//     } else {
+//         uart0_puts("\nDMA Test Failed.\n");
+//     }
+// }

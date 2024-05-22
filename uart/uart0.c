@@ -214,7 +214,6 @@ char uart0_getc()
 
 	/* read it and return */
 	c = (unsigned char)(UART0_DR);
-
 	/* convert carriage return to newline */
 	return (c == '\r' ? '\n' : c);
 }
@@ -259,7 +258,7 @@ void uart0_hex(unsigned int num)
 void uart0_dec(int num)
 {
 	// A string to store the digit characters
-	char str[33] = "";
+	char str[32] = "";
 
 	// Calculate the number of digits
 	int len = 1;

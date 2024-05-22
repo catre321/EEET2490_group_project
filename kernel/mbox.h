@@ -32,6 +32,11 @@ extern volatile unsigned int mBuf[64];
 #define MBOX_TAG_SETPXLORDR 0x48006
 #define MBOX_TAG_GETFB 0x40001
 #define MBOX_TAG_GETPITCH 0x40008
+#define MBOX_TAG_RELEASEBUFFER 0x48001
+#define MBOX_TAG_GETPHYDISPLAYWH 0x40003
+#define MBOX_TAG_GETVIRBUFWH 0x40004
+#define MBOX_TAG_GETVCMEMORY 0x10006
+
 
 /* channels */
 #define MBOX_CH_POWER 0 //Power management
