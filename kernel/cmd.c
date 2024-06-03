@@ -14,38 +14,38 @@
 // list of command and their information n functions
 Command commands[COMMANDS_SIZE] = {
     {"help", "Prints help text", "- Show full information of the command\n"
-                                 "- Example: CatfishOS> help hwinfo",
+                                 "- Example: Group9OS> help hwinfo",
      help},
     {"clear", "Clears the screen", "- Clear screen (in our terminal it will scroll down to current position of the cursor)\n"
-                                   "- Example: CatfishOS> clear",
+                                   "- Example: Group9OS> clear",
      clear},
     {"setcolor", "Set text color, and/or background color", "- Set text color, and/or background color of the console to one of the following colors: BLACK, RED, GREEN, YELLOW, BLUE, PURPLE, CYAN, WHITE\n"
                                                             "- Examples:\n"
-                                                            "CatfishOS> setcolor -t yellow\n"
-                                                            "CatfishOS> setcolor -b yellow -t white",
+                                                            "Group9OS> setcolor -t yellow\n"
+                                                            "Group9OS> setcolor -b yellow -t white",
      setcolor},
     {"showinfo", "Show board information", "- Show board revision and board MAC address in correct format/ meaningful information\n"
-                                           "- Example: CatfishOS> showinfo",
+                                           "- Example: Group9OS> showinfo",
      showinfo},
     {"fetch", "Show welcome message", "- Show welcome message\n"
-                                      "- Example: CatfishOS> fetch",
+                                      "- Example: Group9OS> fetch",
      fetch},
     {"cleardisplay", "Clear display output", "- Clear display output by clear framebuffer\n"
-                                             "- Example: CatfishOS> cleardisplay",
+                                             "- Example: Group9OS> cleardisplay",
      clear_display},
     {"UART0config", "Configure UART0", "- Configure UART0 baudrate, data bits, stop bits, parity, handshaking control\n"
-                                       "- Example: CatfishOS> UART0 config",
+                                       "- Example: Group9OS> UART0 config",
      UART0_config},
     {"bigimage", "Display a oversize image", "- Display a oversize image and use WASD to move around image\n"
-                                             "- Example: CatfishOS> bigimage",
+                                             "- Example: Group9OS> bigimage",
      bigimage},
     {"playvideo", "Play a short video", "- Play a short video in a loop\n"
-                                        "- Example: CatfishOS> playvideo",
+                                        "- Example: Group9OS> playvideo",
      playvideo},
     {"game", "Play space shooting game", "- Play space shooting game with 2 level normal and hard mode\n"
                                          "- Example:\n"
-                                         "CatfishOS> game \n"
-                                         "CatfishOS> game hardmode",
+                                         "Group9OS> game \n"
+                                         "Group9OS> game hardmode",
      game}};
 
 // set codes for terminal color
@@ -477,7 +477,7 @@ void UART0_config(char *args)
 void bigimage()
 {
     uart0_puts("Sizeof imgArray: ");
-    uart0_dec(sizeof(epd_bitmap_big_image));
+    uart0_dec(sizeof(big_image));
 
     // Re-init framebuffer with 1280x720 physical and 1920x1080 virtual screen
     frambf_release();
@@ -486,7 +486,7 @@ void bigimage()
     // clear_fb();
     uart0_puts("Enter the bigimage display, press 'Ctrl+Z' to exit\n");
     // draw_image(0, 0, SCREEN_VIR_WIDTH, SCREEN_VIR_HEIGHT, epd_bitmap_big_image);
-    draw_imagev2(epd_bitmap_big_image);
+    draw_imagev2(big_image);
 
     int currX = 0;
     int currY = 0;
@@ -608,6 +608,7 @@ void game(char *arg)
     char *hard_mode_str = "hardmode";
     // Default normal mode
     uart0_puts(arg);
+    get_uart_config();
     if (arg == 0)
     {
         game_logic(0);

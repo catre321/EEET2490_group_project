@@ -154,6 +154,7 @@
 /* Function prototypes */
 void uart0_test();
 void uart0_init(int baudrate, int databits, int stopbits, int parity, int handshaking);
+void get_uart_config();
 void uart0_sendc(char c);
 int is_uart0_byte_ready();
 char uart0_getc();

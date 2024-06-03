@@ -202,11 +202,11 @@ unsigned long timer_get_ticks() {
     return ((unsigned long)hi << 32) | lo;
 }
 
-// Call DMA to start memory transfer
+// Call DMA to start memory transfer with default brust_length = 14 words
 void do_dma(void *dest,const void *src, unsigned int total) {
     // unsigned int ms_start = timer_get_ticks() / 1000;
 
-        dma_setup_mem_copy(dma, dest, src, total, 2);
+        dma_setup_mem_copy(dma, dest, src, total, 7);
         
         dma_start(dma);
 

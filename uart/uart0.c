@@ -2,18 +2,31 @@
 #include "../kernel/mbox.h"
 // #include "uart1.h"
 
+int baudrate = 0;
+int databits = 0;
+int stopbits = 0;
+int parity = 0;
+int handshaking = 0;
+
 /**
  * Set baud rate and characteristics (115200 8N1) and map to GPIO
  */
-void uart0_init(int baudrate, int databits, int stopbits, int parity, int handshaking)
+void uart0_init(int _baudrate, int _databits, int _stopbits, int _parity, int _handshaking)
 {
+
 	// uart1_puts("UART0 init\n");
-	// int baudrate = 115200;
-	// int databits = 8;
-	// int stopbits = 1;
-	// int parity = 0;
-	// int handshaking = 0;
+	// int _baudrate = 115200;
+	// int _databits = 8;
+	// int _stopbits = 1;
+	// int _parity = 0;
+	// int _handshaking = 0;
 	
+	baudrate = _baudrate;
+	databits = _databits;
+	stopbits = _stopbits;
+	parity = _parity;
+	handshaking = _handshaking;
+
 	unsigned int r;
 
 	/* Turn off UART0 */
@@ -73,7 +86,7 @@ void uart0_init(int baudrate, int databits, int stopbits, int parity, int handsh
 	Integer part register UART0_IBRD  = integer part of Divider
 	Fraction part register UART0_FBRD = (Fractional part * 64) + 0.5 */
 
-	float div = (float)(UART0_CLK) / (16 * baudrate);
+	float div = (float)(UART0_CLK) / (16 * _baudrate);
 
 	// NEW: with UART_CLOCK = 4MHz as set by mailbox:
 	UART0_IBRD = (int)div;
@@ -84,7 +97,7 @@ void uart0_init(int baudrate, int databits, int stopbits, int parity, int handsh
 	UART0_LCRH = 0;
 	UART0_LCRH |= UART0_LCRH_FEN;
 
-	switch (databits)
+	switch (_databits)
 	{
 	case 5:
 		UART0_LCRH |= UART0_LCRH_WLEN_5BIT;
@@ -103,7 +116,7 @@ void uart0_init(int baudrate, int databits, int stopbits, int parity, int handsh
 		break;
 	}
 
-	switch (parity)
+	switch (_parity)
 	{
 	case 0:
 		UART0_LCRH &= ~UART0_LCRH_PEN; // no parity
@@ -121,7 +134,7 @@ void uart0_init(int baudrate, int databits, int stopbits, int parity, int handsh
 		break;
 	}
 
-	if (stopbits == 2)
+	if (_stopbits == 2)
 	{
 		UART0_LCRH |= UART0_LCRH_STP2;
 	}
@@ -130,7 +143,7 @@ void uart0_init(int baudrate, int databits, int stopbits, int parity, int handsh
 		UART0_LCRH &= ~UART0_LCRH_STP2;
 	}
 
-	if(handshaking){
+	if(_handshaking){
 		/* Set GPIO16 and GPIO17 to be pl011 CTS/RTS which is ALT3	*/
 		r = GPFSEL1;
 		r &= ~((7 << 18) | (7 << 21));		// clear bits 23-18 (FSEL16, FSEL17)
@@ -167,6 +180,21 @@ void uart0_init(int baudrate, int databits, int stopbits, int parity, int handsh
 
 	/* Enable UART0, receive, and transmit */
 	UART0_CR = 0x301; // enable Tx, Rx, FIFO
+}
+
+void get_uart_config(){
+	uart0_puts("The current UART configuration:\n");
+	uart0_puts("Baudrate: ");
+	uart0_dec(baudrate);
+	uart0_puts(", Databits: ");
+	uart0_dec(databits);
+	uart0_puts(", Stopbits: ");
+	uart0_dec(stopbits);
+    uart0_puts("\nParity (0 for none, 1 for odd, 2 for even) (default none): ");
+	uart0_dec(parity);
+    uart0_puts("\nHandshaking control (0 for off, 1 for on) (default off): ");
+	uart0_dec(handshaking);	
+	uart0_puts("\n");
 }
 
 /**

@@ -1,7 +1,8 @@
 #include "dma.h"
-#include "mem.h"
-#include "mm.h"
+// #include "mem.h"
+// #include "mm.h"
 #include "../uart/uart0.h"
+#include "../lib/use_func.h"
 
 #include "../kernel/framebf.h"
 
@@ -85,7 +86,19 @@ void dma_start(dma_channel *channel) {
     // uart0_puts("The DMA CBlock: ");
     // uart0_hex(channel->block->transfer_info);
     
-    REGS_DMA(channel->channel)->control_block_addr = BUS_ADDRESS((unsigned long)channel->block);
+    /* Convert ARM address to GPU bus address (set higher address bits)
+     * DMA control blocks are located in RAM memory, which VideoCore MMU
+     * maps to the bus address space starting at 0xC0000000.
+     * Software accessing RAM directly uses physical addresses
+     * (based at 0x00000000). To ensure proper access by the GPU,
+     * the ARM address must be converted to a GPU bus address.
+     * This is achieved by clearing the upper address bits and
+     * setting the base address to 0xC0000000.
+    */ 
+    REGS_DMA(channel->channel)->control_block_addr = (((unsigned long)(channel->block) & (0x3FFFFFFF)) | 0xC0000000);
+
+
+    // REGS_DMA(channel->channel)->control_block_addr = BUS_ADDRESS((unsigned long)channel->block);
 
     REGS_DMA(channel->channel)->control = CS_WAIT_FOR_OUTSTANDING_WRITES
 					      | (DEFAULT_PANIC_PRIORITY << CS_PANIC_PRIORITY_SHIFT)

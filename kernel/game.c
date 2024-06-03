@@ -1,16 +1,11 @@
-// #ifndef GAME_H
-// #define GAME_H
-
-// #include "assets.h"
 #include "game.h"
 #include "../images/games/space_shuttle.h"
 #include "../images/games/chicken.h"
 #include "../images/games/red_laser.h"
 #include "../images/games/blue_laser.h"
 #include "../uart/uart0.h"
-// #include "../images/full_black.h"
+#include "../images/games/background.h"
 #include "../lib/use_func.h"
-// #include "std"
 
 #include "framebf.h"
 
@@ -27,7 +22,7 @@
 #define CHICKEN_SPACING (SCREEN_PYS_WIDTH / (NUM_CHICKEN_PER_LINE + 1))
 #define CHICKEN_START_Y 0
 #define COMPARE_VALUE 5
-#define SPACE_SHUTTLE_LIVES 3
+#define SPACE_SHUTTLE_LIVES 5
 #define SPACE_SHUTTLE_START_X (SCREEN_PYS_HEIGHT - SPACE_SHUTTLE_HEIGHT)
 #define SPACE_SHUTTLE_START_Y ((SCREEN_PYS_WIDTH / 2) - (SPACE_SHUTTLE_WIDTH / 2))
 
@@ -40,6 +35,7 @@
 // #define SCORE_UI_X SCREEN_WIDTH - 250
 // #define SCORE_UI_Y 20
 
+unsigned int no_of_cmd_receive = 0;
 int is_hard_mode = 0;
 int is_exit_game = 0;
 int chicken_lived = 0;
@@ -63,7 +59,6 @@ char get_input()
     char c = 0;
     while (is_uart0_byte_ready())
     {
-        uart0_puts("ACK input\n");
         c = uart0_getc(); // Read and discard the character
     }
     return c;
@@ -73,28 +68,33 @@ char get_input()
 void handle_input()
 {
     // Handle key input
-
+    int is_ack = 0;
     char c = get_input();
     switch (c)
     {
     case 'w':
     case 'W':
+        is_ack = 1;
         space_shuttle_object.y_moved_pixel = -PLAYER_MOVE_PIXEL;
         break;
     case 'a':
     case 'A':
+        is_ack = 1;
         space_shuttle_object.x_moved_pixel = -PLAYER_MOVE_PIXEL;
         break;
     case 's':
     case 'S':
+        is_ack = 1;
         space_shuttle_object.y_moved_pixel = PLAYER_MOVE_PIXEL;
         break;
     case 'd':
     case 'D':
+        is_ack = 1;
         space_shuttle_object.x_moved_pixel = PLAYER_MOVE_PIXEL;
         break;
     case 'j':
     case 'J':
+        is_ack = 1;
         shoot_blue_bullet(&space_shuttle_object);
         break;
     // Ctrl+z exit code
@@ -102,7 +102,15 @@ void handle_input()
         is_exit_game = 1;
         break;
     default:
+        uart0_puts("NAK input\n");
         break;
+    }
+    
+    if(is_ack){
+        no_of_cmd_receive++;
+        uart0_puts("ACK input, No of commands receive: ");
+        uart0_dec(no_of_cmd_receive);
+        uart0_puts("\n");
     }
 }
 
@@ -233,7 +241,7 @@ void check_red_bullet_hit(game_object *red_laser_objects)
     }
 }
 
-// Update X coordinate of space_shuttle
+// Update XY coordinate of space_shuttle
 void update_space_shuttle(game_object *object)
 {
     // Calculate the new x position
@@ -444,6 +452,7 @@ void create_chickens()
 
 void init_game()
 {
+    no_of_cmd_receive = 0;
     is_exit_game = 0;
     space_shuttle_live = SPACE_SHUTTLE_LIVES;
     compare_value = COMPARE_VALUE;
@@ -519,6 +528,7 @@ void game_logic(int _is_hard_mode)
         // Clear and re-draw all objects of the game
         clear_back_buffer();
 
+        draw_iconv2(0, 0, 1280, 720, background);
         update_bullets(blue_laser_objects, MAX_BLUE_BULLET);
         update_bullets(red_laser_objects_1, MAX_RED_BULLET);
 
